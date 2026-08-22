@@ -1,0 +1,1406 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calculator de Băuturi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ===================== DESIGN TOKENS ===================== */
+:root{
+  --bg:#faf6f1;
+  --surface:#ffffff;
+  --surface-2:#f4ece3;
+  --ink:#2a1c1f;
+  --muted:#7d686b;
+  --border:#e6d9cb;
+  --accent:#7a1f2b;
+  --accent-ink:#ffffff;
+  --accent-soft:#f6e2e2;
+  --gold:#b8873f;
+  --gold-soft:#f2e3c4;
+  --good:#3f7a4f;
+  --shadow:0 10px 30px -18px rgba(58,26,20,0.35);
+  --focus:#1c6fb0;
+  --radius:14px;
+  --radius-sm:8px;
+  --serif:'Fraunces', Georgia, 'Times New Roman', serif;
+  --sans:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#1c1315;
+    --surface:#251a1c;
+    --surface-2:#2c2023;
+    --ink:#f4e9e6;
+    --muted:#b6a3a3;
+    --border:#432f31;
+    --accent:#e08a92;
+    --accent-ink:#2a1315;
+    --accent-soft:#3a2226;
+    --gold:#e0b465;
+    --gold-soft:#3a3021;
+    --good:#7fbf8f;
+    --shadow:0 10px 30px -16px rgba(0,0,0,0.6);
+    --focus:#7fbde0;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#1c1315;
+  --surface:#251a1c;
+  --surface-2:#2c2023;
+  --ink:#f4e9e6;
+  --muted:#b6a3a3;
+  --border:#432f31;
+  --accent:#e08a92;
+  --accent-ink:#2a1315;
+  --accent-soft:#3a2226;
+  --gold:#e0b465;
+  --gold-soft:#3a3021;
+  --good:#7fbf8f;
+  --shadow:0 10px 30px -16px rgba(0,0,0,0.6);
+  --focus:#7fbde0;
+}
+
+*{box-sizing:border-box;}
+html{-webkit-text-size-adjust:100%;}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--sans);
+  font-size:16px;
+  line-height:1.55;
+}
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:0.001ms !important; transition-duration:0.001ms !important;}
+}
+
+.page{
+  max-width:760px;
+  margin:0 auto;
+  padding:28px 20px 80px;
+}
+
+/* ---------- Hero ---------- */
+.hero{ text-align:center; padding:8px 0 28px; }
+.eyebrow{
+  font-family:var(--sans);
+  text-transform:uppercase;
+  letter-spacing:0.14em;
+  font-size:12px;
+  font-weight:600;
+  color:var(--gold);
+  margin:0 0 10px;
+}
+.hero h1{
+  font-family:var(--serif);
+  font-optical-sizing:auto;
+  font-weight:600;
+  font-size:clamp(30px, 6vw, 42px);
+  line-height:1.1;
+  margin:0 0 12px;
+  text-wrap:balance;
+  color:var(--ink);
+}
+.hero .lede{
+  max-width:46ch;
+  margin:0 auto;
+  color:var(--muted);
+  font-size:15.5px;
+}
+
+/* ---------- Stepper ---------- */
+.stepper{ margin:0 0 26px; }
+.stepper ol{
+  list-style:none;
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:8px;
+  padding:0;
+  margin:0;
+}
+.step{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:6px;
+  padding:10px 4px 0;
+  border-top:3px solid var(--border);
+  color:var(--muted);
+  transition:color .2s, border-color .2s;
+}
+.step .step-num{
+  font-family:var(--serif);
+  font-size:13px;
+  font-weight:600;
+  width:22px; height:22px;
+  border-radius:50%;
+  border:1.5px solid var(--border);
+  display:flex; align-items:center; justify-content:center;
+  background:var(--surface);
+}
+.step .step-label{
+  font-size:11.5px;
+  font-weight:600;
+  text-transform:uppercase;
+  letter-spacing:0.04em;
+  text-align:center;
+}
+.step.active{ color:var(--accent); border-top-color:var(--accent); }
+.step.active .step-num{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+.step.done{ color:var(--gold); border-top-color:var(--gold); }
+.step.done .step-num{ background:var(--gold-soft); border-color:var(--gold); }
+
+/* ---------- Panels / Cards ---------- */
+.panel{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  padding:26px 24px;
+  margin-bottom:18px;
+}
+.panel[hidden]{ display:none; }
+.panel h2{
+  font-family:var(--serif);
+  font-size:22px;
+  font-weight:600;
+  margin:0 0 4px;
+}
+.panel .panel-sub{
+  color:var(--muted);
+  font-size:14px;
+  margin:0 0 20px;
+}
+
+fieldset{ border:0; margin:0 0 24px; padding:0; }
+fieldset:last-child{ margin-bottom:0; }
+legend{
+  font-weight:600;
+  font-size:14px;
+  padding:0 0 10px;
+  width:100%;
+}
+.legend-help{
+  display:block;
+  font-weight:400;
+  color:var(--muted);
+  font-size:12.5px;
+  margin-top:2px;
+}
+
+/* ---------- Chip choices (radio/checkbox as buttons) ---------- */
+.chip-row{ display:flex; flex-wrap:wrap; gap:8px; }
+.chip{
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:9px 15px;
+  border:1.5px solid var(--border);
+  border-radius:999px;
+  background:var(--surface);
+  font-size:13.5px;
+  font-weight:500;
+  cursor:pointer;
+  user-select:none;
+  transition:background .15s, border-color .15s, color .15s;
+}
+.chip input{
+  position:absolute;
+  opacity:0;
+  width:1px; height:1px;
+  pointer-events:none;
+}
+.chip:hover{ border-color:var(--accent); }
+.chip.is-checked{
+  background:var(--accent);
+  border-color:var(--accent);
+  color:var(--accent-ink);
+}
+.chip input:focus-visible ~ span,
+.chip:has(input:focus-visible){
+  outline:2px solid var(--focus);
+  outline-offset:2px;
+}
+
+/* ---------- Counters ---------- */
+.counter-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(150px,1fr));
+  gap:14px;
+}
+.counter{
+  border:1px solid var(--border);
+  border-radius:var(--radius-sm);
+  padding:12px 14px;
+  background:var(--surface-2);
+}
+.counter label{
+  display:block;
+  font-size:12.5px;
+  font-weight:600;
+  color:var(--muted);
+  text-transform:uppercase;
+  letter-spacing:0.03em;
+  margin-bottom:8px;
+}
+.counter-control{ display:flex; align-items:center; gap:8px; }
+.counter-control button{
+  width:32px; height:32px;
+  border-radius:8px;
+  border:1.5px solid var(--border);
+  background:var(--surface);
+  color:var(--ink);
+  font-size:17px;
+  line-height:1;
+  cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+}
+.counter-control button:hover{ border-color:var(--accent); color:var(--accent); }
+.counter-control input[type="number"]{
+  width:100%;
+  text-align:center;
+  font-family:var(--sans);
+  font-variant-numeric:tabular-nums;
+  font-size:17px;
+  font-weight:600;
+  border:1.5px solid var(--border);
+  border-radius:8px;
+  padding:6px 4px;
+  background:var(--surface);
+  color:var(--ink);
+}
+
+/* ---------- Buttons ---------- */
+button{ font-family:var(--sans); }
+button:focus-visible, input:focus-visible, a:focus-visible{
+  outline:2px solid var(--focus);
+  outline-offset:2px;
+}
+.btn{
+  appearance:none;
+  border:1.5px solid var(--border);
+  background:var(--surface);
+  color:var(--ink);
+  padding:11px 20px;
+  border-radius:999px;
+  font-weight:600;
+  font-size:14.5px;
+  cursor:pointer;
+  transition:background .15s, border-color .15s, transform .05s;
+}
+.btn:active{ transform:scale(0.98); }
+.btn-primary{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+.btn-primary:hover{ opacity:0.92; }
+.btn-ghost:hover{ border-color:var(--accent); color:var(--accent); }
+.btn:disabled{ opacity:0.4; cursor:not-allowed; }
+
+.nav-buttons{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  margin-top:4px;
+}
+
+/* ---------- Slider (percent split) ---------- */
+.slider-row{
+  display:grid;
+  grid-template-columns:1fr auto;
+  align-items:center;
+  gap:10px;
+  padding:10px 0;
+  border-bottom:1px solid var(--border);
+}
+.slider-row:last-child{ border-bottom:none; }
+.slider-row .slider-label{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:14px;
+  font-weight:500;
+}
+.slider-row input[type="range"]{
+  width:100%;
+  accent-color:var(--accent);
+  grid-column:1 / -1;
+}
+.slider-pct{
+  font-variant-numeric:tabular-nums;
+  font-weight:700;
+  color:var(--accent);
+  min-width:44px;
+  text-align:right;
+}
+.slider-hint{
+  grid-column:1/-1;
+  font-size:12px;
+  color:var(--muted);
+}
+
+/* ---------- Results ---------- */
+.summary-card{
+  background:linear-gradient(160deg, var(--accent-soft), var(--surface) 60%);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:20px 22px;
+  margin-bottom:20px;
+}
+.summary-card p{
+  margin:0;
+  font-family:var(--serif);
+  font-size:19px;
+  line-height:1.45;
+  color:var(--ink);
+}
+.summary-card strong{ color:var(--accent); }
+
+.reserve-row{ margin-bottom:22px; }
+
+.results-group{ margin-bottom:22px; }
+.results-group h3{
+  font-family:var(--serif);
+  font-size:17px;
+  font-weight:600;
+  margin:0 0 10px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.results-group h3::after{
+  content:"";
+  flex:1;
+  height:1px;
+  background:var(--border);
+}
+.table-wrap{ overflow-x:auto; border:1px solid var(--border); border-radius:var(--radius-sm); }
+table.results-table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:13.5px;
+  min-width:520px;
+}
+table.results-table th, table.results-table td{
+  padding:10px 12px;
+  text-align:left;
+  border-bottom:1px solid var(--border);
+  white-space:nowrap;
+}
+table.results-table th{
+  background:var(--surface-2);
+  font-size:11.5px;
+  text-transform:uppercase;
+  letter-spacing:0.03em;
+  color:var(--muted);
+  font-weight:600;
+}
+table.results-table td.num{ font-variant-numeric:tabular-nums; text-align:right; }
+table.results-table tr:last-child td{ border-bottom:none; }
+.qty-input{
+  width:64px;
+  text-align:right;
+  font-variant-numeric:tabular-nums;
+  font-weight:700;
+  border:1.5px solid var(--border);
+  border-radius:6px;
+  padding:5px 6px;
+  background:var(--surface);
+  color:var(--ink);
+}
+.qty-input.overridden{ border-color:var(--gold); background:var(--gold-soft); }
+.override-flag{
+  display:inline-block;
+  margin-left:6px;
+  font-size:10.5px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:0.03em;
+  color:var(--gold);
+}
+.price-input{
+  width:80px;
+  text-align:right;
+  font-variant-numeric:tabular-nums;
+  border:1.5px solid var(--border);
+  border-radius:6px;
+  padding:5px 6px;
+  background:var(--surface);
+  color:var(--ink);
+}
+.empty-note{
+  font-size:13.5px;
+  color:var(--muted);
+  padding:16px;
+  text-align:center;
+  border:1px dashed var(--border);
+  border-radius:var(--radius-sm);
+}
+
+.pricing-toggle{ margin-bottom:18px; }
+.grand-total{
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  padding:14px 18px;
+  background:var(--surface-2);
+  border:1px solid var(--border);
+  border-radius:var(--radius-sm);
+  margin-top:6px;
+}
+.grand-total .label{ font-weight:600; font-size:14px; }
+.grand-total .value{
+  font-family:var(--serif);
+  font-size:22px;
+  font-weight:700;
+  color:var(--accent);
+  font-variant-numeric:tabular-nums;
+}
+
+.result-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:22px;
+}
+.copy-feedback{
+  font-size:13px;
+  color:var(--good);
+  font-weight:600;
+  align-self:center;
+}
+
+.assumptions{
+  margin-top:26px;
+  font-size:12.5px;
+  color:var(--muted);
+}
+.assumptions summary{ cursor:pointer; font-weight:600; }
+.assumptions ul{ margin:10px 0 0; padding-left:18px; }
+.assumptions li{ margin-bottom:4px; }
+
+footer.credit{
+  text-align:center;
+  color:var(--muted);
+  font-size:12px;
+  margin-top:30px;
+}
+
+/* ---------- Print ---------- */
+@media print{
+  body{ background:#fff; color:#000; }
+  .stepper, .nav-buttons, .btn, .result-actions, .reserve-row .chip-row, footer.credit, .hero .lede, .assumptions{ display:none !important; }
+  .panel{ box-shadow:none; border:none; padding:0; margin:0; }
+  .panel[hidden]{ display:none !important; }
+  #panel-4[hidden]{ display:block !important; }
+  #panel-1, #panel-2, #panel-3{ display:none !important; }
+  .qty-input, .price-input{ border:none; background:transparent; color:#000; }
+  .summary-card{ background:none; border:1px solid #999; }
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width:480px){
+  .panel{ padding:20px 16px; }
+  .step .step-label{ font-size:10px; }
+  table.results-table{ font-size:12.5px; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="hero">
+    <p class="eyebrow">Calculator pentru evenimente</p>
+    <h1>Calculator de Băuturi</h1>
+    <p class="lede">Estimează câte sticle de apă, vin, spumant și tărie sunt necesare pentru un eveniment — nunta, cumătrie, aniversare. Fără brand, fără magazin — doar calcul clar și transparent.</p>
+  </header>
+
+  <nav class="stepper" aria-label="Progresul calculului">
+    <ol id="stepperList">
+      <li data-step="1" class="step active"><span class="step-num">1</span><span class="step-label">Eveniment</span></li>
+      <li data-step="2" class="step"><span class="step-num">2</span><span class="step-label">Invitați</span></li>
+      <li data-step="3" class="step"><span class="step-num">3</span><span class="step-label">Preferințe</span></li>
+      <li data-step="4" class="step"><span class="step-num">4</span><span class="step-label">Rezultat</span></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <!-- ===================== PANEL 1: EVENIMENT ===================== -->
+    <section class="panel" id="panel-1" data-panel="1">
+      <h2>Despre eveniment</h2>
+      <p class="panel-sub">Câteva detalii care influențează cât se consumă.</p>
+
+      <fieldset>
+        <legend>Durata evenimentului
+          <span class="legend-help">Un eveniment mai lung înseamnă consum mai mare per persoană.</span>
+        </legend>
+        <div class="chip-row" data-group="duration">
+          <label class="chip"><input type="radio" name="duration" value="scurt"><span>Scurt (până la 4 ore)</span></label>
+          <label class="chip"><input type="radio" name="duration" value="standard" checked><span>Standard (5–7 ore)</span></label>
+          <label class="chip"><input type="radio" name="duration" value="lung"><span>Lung (8 ore sau mai mult)</span></label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Sezonul
+          <span class="legend-help">Vara crește nevoia de apă și băuturi răcoritoare.</span>
+        </legend>
+        <div class="chip-row" data-group="season">
+          <label class="chip"><input type="radio" name="season" value="vara"><span>Vară</span></label>
+          <label class="chip"><input type="radio" name="season" value="restul" checked><span>Restul anului</span></label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Profilul de consum al invitaților
+          <span class="legend-help">O apreciere generală a cât obișnuiesc să bea invitații voștri.</span>
+        </legend>
+        <div class="chip-row" data-group="profile">
+          <label class="chip"><input type="radio" name="profile" value="redus"><span>Redus</span></label>
+          <label class="chip"><input type="radio" name="profile" value="normal" checked><span>Normal</span></label>
+          <label class="chip"><input type="radio" name="profile" value="ridicat"><span>Ridicat</span></label>
+        </div>
+      </fieldset>
+    </section>
+
+    <!-- ===================== PANEL 2: INVITAȚI ===================== -->
+    <section class="panel" id="panel-2" data-panel="2" hidden>
+      <h2>Invitații</h2>
+      <p class="panel-sub">Câți oameni participă și câți dintre adulți consumă alcool.</p>
+
+      <div class="counter-grid" style="margin-bottom:24px;">
+        <div class="counter">
+          <label for="numAdults">Adulți</label>
+          <div class="counter-control">
+            <button type="button" data-target="numAdults" data-step="-1" aria-label="Scade adulți">−</button>
+            <input type="number" id="numAdults" min="0" step="1" value="100" inputmode="numeric">
+            <button type="button" data-target="numAdults" data-step="1" aria-label="Crește adulți">+</button>
+          </div>
+        </div>
+        <div class="counter">
+          <label for="numTeens">Adolescenți</label>
+          <div class="counter-control">
+            <button type="button" data-target="numTeens" data-step="-1" aria-label="Scade adolescenți">−</button>
+            <input type="number" id="numTeens" min="0" step="1" value="0" inputmode="numeric">
+            <button type="button" data-target="numTeens" data-step="1" aria-label="Crește adolescenți">+</button>
+          </div>
+        </div>
+        <div class="counter">
+          <label for="numChildren">Copii</label>
+          <div class="counter-control">
+            <button type="button" data-target="numChildren" data-step="-1" aria-label="Scade copii">−</button>
+            <input type="number" id="numChildren" min="0" step="1" value="0" inputmode="numeric">
+            <button type="button" data-target="numChildren" data-step="1" aria-label="Crește copii">+</button>
+          </div>
+        </div>
+      </div>
+
+      <fieldset>
+        <legend>Ce procent din adulți consumă alcool?
+          <span class="legend-help">Adolescenții și copiii nu sunt incluși niciodată în calculul băuturilor alcoolice.</span>
+        </legend>
+        <div class="chip-row" data-group="drinkingPct" style="margin-bottom:10px;">
+          <label class="chip"><input type="radio" name="drinkingPctPreset" value="100"><span>100%</span></label>
+          <label class="chip"><input type="radio" name="drinkingPctPreset" value="85" checked><span>85%</span></label>
+          <label class="chip"><input type="radio" name="drinkingPctPreset" value="70"><span>70%</span></label>
+          <label class="chip"><input type="radio" name="drinkingPctPreset" value="50"><span>50%</span></label>
+          <label class="chip"><input type="radio" name="drinkingPctPreset" value="0"><span>0%</span></label>
+        </div>
+        <input type="range" id="drinkingPctSlider" min="0" max="100" step="5" value="85" style="width:100%; accent-color:var(--accent);" aria-label="Procent adulți care consumă alcool">
+        <div class="slider-hint" id="drinkingPctReadout">85% dintre adulți consumă alcool (85 din 100 adulți)</div>
+      </fieldset>
+    </section>
+
+    <!-- ===================== PANEL 3: PREFERINȚE ===================== -->
+    <section class="panel" id="panel-3" data-panel="3" hidden>
+      <h2>Preferințe de băutură</h2>
+      <p class="panel-sub">Alegeți ce categorii vreți în lista finală.</p>
+
+      <fieldset>
+        <legend>Băuturi nealcoolice</legend>
+        <div class="chip-row" data-group="nonalc">
+          <label class="chip"><input type="checkbox" name="cat" value="apaPlata" checked><span>Apă plată</span></label>
+          <label class="chip"><input type="checkbox" name="cat" value="apaMinerala" checked><span>Apă minerală</span></label>
+          <label class="chip"><input type="checkbox" name="cat" value="suc" checked><span>Suc</span></label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Vin
+          <span class="legend-help">Selectați unul sau mai multe tipuri — cantitatea totală de vin se împarte egal între ele.</span>
+        </legend>
+        <div class="chip-row" data-group="wine">
+          <label class="chip"><input type="checkbox" name="cat" value="vinAlb" checked><span>Vin alb</span></label>
+          <label class="chip"><input type="checkbox" name="cat" value="vinRosu" checked><span>Vin roșu</span></label>
+          <label class="chip"><input type="checkbox" name="cat" value="vinRose"><span>Vin rosé</span></label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Spumant</legend>
+        <div class="chip-row" data-group="spumant">
+          <label class="chip"><input type="checkbox" name="cat" value="spumantBrut" checked><span>Spumant brut</span></label>
+          <label class="chip"><input type="checkbox" name="cat" value="spumantDulce"><span>Spumant dulce</span></label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Tărie
+          <span class="legend-help">Bifați tipurile dorite, apoi ajustați ponderea fiecăruia — procentele se normalizează automat la 100%.</span>
+        </legend>
+        <div class="chip-row" data-group="spirits" style="margin-bottom:14px;">
+          <label class="chip"><input type="checkbox" name="cat" value="divin" checked><span>Divin</span></label>
+          <label class="chip"><input type="checkbox" name="cat" value="whisky" checked><span>Whisky</span></label>
+          <label class="chip"><input type="checkbox" name="cat" value="vodca"><span>Vodcă</span></label>
+          <label class="chip"><input type="checkbox" name="cat" value="gin"><span>Gin</span></label>
+          <label class="chip"><input type="checkbox" name="cat" value="rom"><span>Rom</span></label>
+        </div>
+        <div id="spiritSliders"></div>
+      </fieldset>
+    </section>
+
+    <!-- ===================== PANEL 4: REZULTAT ===================== -->
+    <section class="panel" id="panel-4" data-panel="4" hidden>
+      <h2>Rezultatul calculului</h2>
+      <p class="panel-sub">Cantitățile pot fi editate manual mai jos, dacă vreți să ajustați recomandarea.</p>
+
+      <fieldset class="reserve-row">
+        <legend>Rezervă de siguranță
+          <span class="legend-help">Se aplică o singură dată, uniform, peste toate cantitățile calculate.</span>
+        </legend>
+        <div class="chip-row" data-group="reserve">
+          <label class="chip"><input type="radio" name="reserve" value="0"><span>Exact</span></label>
+          <label class="chip"><input type="radio" name="reserve" value="5"><span>+5%</span></label>
+          <label class="chip"><input type="radio" name="reserve" value="10" checked><span>+10%</span></label>
+          <label class="chip"><input type="radio" name="reserve" value="15"><span>+15%</span></label>
+        </div>
+      </fieldset>
+
+      <div class="summary-card">
+        <p id="summaryText">Completați pașii anteriori pentru a vedea recomandarea.</p>
+      </div>
+
+      <div class="pricing-toggle">
+        <fieldset>
+          <legend>Prețuri
+            <span class="legend-help">Complet opțional. Introducerea unui preț nu modifică niciodată cantitățile calculate.</span>
+          </legend>
+          <div class="chip-row" data-group="pricingMode">
+            <label class="chip"><input type="radio" name="pricingMode" value="none" checked><span>Fără prețuri</span></label>
+            <label class="chip"><input type="radio" name="pricingMode" value="manual"><span>Preț manual (MDL)</span></label>
+          </div>
+        </fieldset>
+      </div>
+
+      <div id="resultsContainer"></div>
+
+      <div id="grandTotalWrap" hidden>
+        <div class="grand-total">
+          <span class="label">Total estimat</span>
+          <span class="value" id="grandTotalValue">0 MDL</span>
+        </div>
+      </div>
+
+      <div class="result-actions">
+        <button type="button" class="btn btn-ghost" id="btnCopy">Copiază lista</button>
+        <button type="button" class="btn btn-ghost" id="btnPrint">Printează</button>
+        <button type="button" class="btn btn-ghost" id="btnResetOverrides">Resetează editările manuale</button>
+        <span class="copy-feedback" id="copyFeedback" hidden>Copiat în clipboard ✓</span>
+      </div>
+
+      <details class="assumptions">
+        <summary>Ce presupuneri stau la baza calculului?</summary>
+        <ul>
+          <li>Cantitățile de alcool se calculează doar din numărul de adulți care consumă — adolescenții și copiii nu primesc niciodată alcool în calcul.</li>
+          <li>Vinul, spumantul și tăria sunt influențate de profilul de consum și de durata evenimentului; apa și sucul sunt influențate de sezon și, pentru suc, de durată.</li>
+          <li>Rezerva de siguranță se aplică o singură dată, la final, peste toate categoriile.</li>
+          <li>Dimensiunea sticlei per categorie este fixă și identică atât în calcul, cât și în afișare.</li>
+        </ul>
+      </details>
+    </section>
+
+  </main>
+
+  <div class="nav-buttons">
+    <button type="button" class="btn btn-ghost" id="btnPrev" disabled>Înapoi</button>
+    <button type="button" class="btn btn-primary" id="btnNext">Continuă</button>
+  </div>
+
+  <footer class="credit">Calculator de Băuturi pentru Evenimente — fără afiliere cu niciun magazin sau brand.</footer>
+</div>
+
+<script>
+/* =========================================================================
+   1. CONFIG — every tunable assumption lives here. Nothing else in this
+   file should contain a raw magic number for consumption, bottle size,
+   or multipliers.
+   ========================================================================= */
+const CONFIG = {
+  // Single source of truth for bottle size (ml), used for BOTH the math
+  // and the label shown to the user. Never duplicate this elsewhere.
+  BOTTLE_SIZES: {
+    apaPlata: 1500,
+    apaMinerala: 1500,
+    suc: 1000,
+    vinAlb: 750,
+    vinRosu: 750,
+    vinRose: 750,
+    spumantBrut: 750,
+    spumantDulce: 750,
+    divin: 700,
+    whisky: 700,
+    vodca: 700,
+    gin: 700,
+    rom: 700,
+  },
+
+  CATEGORY_META: {
+    apaPlata:      { label: 'Apă plată',      group: 'Apă & nealcoolice' },
+    apaMinerala:   { label: 'Apă minerală',   group: 'Apă & nealcoolice' },
+    suc:           { label: 'Suc',            group: 'Apă & nealcoolice' },
+    vinAlb:        { label: 'Vin alb',        group: 'Vin' },
+    vinRosu:       { label: 'Vin roșu',       group: 'Vin' },
+    vinRose:       { label: 'Vin rosé',       group: 'Vin' },
+    spumantBrut:   { label: 'Spumant brut',   group: 'Spumant' },
+    spumantDulce:  { label: 'Spumant dulce',  group: 'Spumant' },
+    divin:         { label: 'Divin',          group: 'Tărie' },
+    whisky:        { label: 'Whisky',         group: 'Tărie' },
+    vodca:         { label: 'Vodcă',          group: 'Tărie' },
+    gin:           { label: 'Gin',            group: 'Tărie' },
+    rom:           { label: 'Rom',            group: 'Tărie' },
+  },
+
+  GROUP_ORDER: ['Apă & nealcoolice', 'Vin', 'Spumant', 'Tărie'],
+  WINE_KEYS: ['vinAlb', 'vinRosu', 'vinRose'],
+  SPUMANT_KEYS: ['spumantBrut', 'spumantDulce'],
+  SPIRIT_KEYS: ['divin', 'whisky', 'vodca', 'gin', 'rom'],
+
+  // Baseline liters per relevant person, for a STANDARD event (5-7h,
+  // non-summer, "Normal" consumption profile). Multipliers below scale
+  // this baseline up or down.
+  CONSUMPTION: {
+    apaPlata: 0.9,       // per guest (all adults + teens + children)
+    apaMinerala: 0.3,    // per guest (all adults + teens + children)
+    suc: 0.4,            // per non-alcohol-consuming person (teens + children + non-drinking adults)
+    wineTotal: 0.375,    // per drinking adult; split across selected wine types
+    spumantTotal: 0.25,  // per drinking adult; split across selected spumant types
+    spiritsTotal: 0.12,  // per drinking adult; split across selected spirit types by weight
+  },
+
+  // Applied ONLY to alcohol categories (wine, spumant, spirits).
+  PROFILE_MULTIPLIERS: { redus: 0.8, normal: 1.0, ridicat: 1.25 },
+
+  // Applied to alcohol categories AND soft drinks (suc). Water is
+  // deliberately excluded — thirst doesn't scale the same way with
+  // event length as drinking pace does.
+  DURATION_MULTIPLIERS: { scurt: 0.7, standard: 1.0, lung: 1.3 },
+
+  // Applied ONLY to water + soft drinks. Never touches alcohol.
+  SEASON_MULTIPLIER: { vara: 1.25, restul: 1.0 },
+
+  // Applied once, uniformly, at the very end of the pipeline.
+  RESERVE_OPTIONS: { '0': 1.0, '5': 1.05, '10': 1.10, '15': 1.15 },
+};
+
+/* =========================================================================
+   2. GUEST MODEL
+   ========================================================================= */
+function buildGuestModel(adults, teens, children, drinkingPct) {
+  adults = Math.max(0, adults || 0);
+  teens = Math.max(0, teens || 0);
+  children = Math.max(0, children || 0);
+  drinkingPct = Math.min(100, Math.max(0, drinkingPct || 0));
+
+  const drinkingAdults = Math.round(adults * (drinkingPct / 100));
+  const nonDrinkingAdults = adults - drinkingAdults;
+  const allGuests = adults + teens + children;
+  const softConsumers = teens + children + nonDrinkingAdults;
+
+  return { adults, teens, children, drinkingPct, drinkingAdults, nonDrinkingAdults, allGuests, softConsumers };
+}
+
+/* =========================================================================
+   3. EVENT PROFILE helpers — just look up the configured multipliers.
+   ========================================================================= */
+function getEventMultipliers(profile, duration, season) {
+  return {
+    profileMult: CONFIG.PROFILE_MULTIPLIERS[profile] ?? 1,
+    durationMult: CONFIG.DURATION_MULTIPLIERS[duration] ?? 1,
+    seasonMult: CONFIG.SEASON_MULTIPLIER[season] ?? 1,
+  };
+}
+
+/* =========================================================================
+   4. DRINK SELECTION — read from the DOM into a plain selection object.
+   ========================================================================= */
+function readSelection() {
+  const checked = Array.from(document.querySelectorAll('input[name="cat"]:checked')).map(el => el.value);
+  const spiritWeights = {};
+  CONFIG.SPIRIT_KEYS.forEach(key => {
+    const slider = document.getElementById('spiritSlider_' + key);
+    spiritWeights[key] = slider ? Number(slider.value) : 0;
+  });
+  return { activeCategories: new Set(checked), spiritWeights };
+}
+
+/* =========================================================================
+   5. CALCULATION ENGINE — pure. No DOM access. No price references.
+   Produces one row per ACTIVE category. A category with zero relevant
+   guests, zero weight, or zero selection produces liters = 0 and
+   bottleCount = 0 — never a fabricated minimum.
+   ========================================================================= */
+function computeResults(guestModel, eventProfile, selection, reservePct) {
+  const { profileMult, durationMult, seasonMult } = getEventMultipliers(
+    eventProfile.profile, eventProfile.duration, eventProfile.season
+  );
+  const reserveMult = CONFIG.RESERVE_OPTIONS[String(reservePct)] ?? 1.0;
+  const active = selection.activeCategories;
+  const liters = {};
+
+  // --- Non-alcoholic ---
+  liters.apaPlata = active.has('apaPlata') ? guestModel.allGuests * CONFIG.CONSUMPTION.apaPlata * seasonMult : 0;
+  liters.apaMinerala = active.has('apaMinerala') ? guestModel.allGuests * CONFIG.CONSUMPTION.apaMinerala * seasonMult : 0;
+  liters.suc = active.has('suc') ? guestModel.softConsumers * CONFIG.CONSUMPTION.suc * seasonMult * durationMult : 0;
+
+  // --- Wine: total liters split evenly across selected wine types ---
+  const selectedWines = CONFIG.WINE_KEYS.filter(k => active.has(k));
+  const wineTotalLiters = guestModel.drinkingAdults * CONFIG.CONSUMPTION.wineTotal * profileMult * durationMult;
+  CONFIG.WINE_KEYS.forEach(k => { liters[k] = 0; });
+  if (selectedWines.length > 0) {
+    const perWine = wineTotalLiters / selectedWines.length;
+    selectedWines.forEach(k => { liters[k] = perWine; });
+  }
+
+  // --- Spumant: total liters split evenly across selected spumant types ---
+  const selectedSpumant = CONFIG.SPUMANT_KEYS.filter(k => active.has(k));
+  const spumantTotalLiters = guestModel.drinkingAdults * CONFIG.CONSUMPTION.spumantTotal * profileMult * durationMult;
+  CONFIG.SPUMANT_KEYS.forEach(k => { liters[k] = 0; });
+  if (selectedSpumant.length > 0) {
+    const perSpumant = spumantTotalLiters / selectedSpumant.length;
+    selectedSpumant.forEach(k => { liters[k] = perSpumant; });
+  }
+
+  // --- Spirits: total liters split by NORMALIZED weight across selected types ---
+  const selectedSpirits = CONFIG.SPIRIT_KEYS.filter(k => active.has(k));
+  const spiritsTotalLiters = guestModel.drinkingAdults * CONFIG.CONSUMPTION.spiritsTotal * profileMult * durationMult;
+  CONFIG.SPIRIT_KEYS.forEach(k => { liters[k] = 0; });
+  if (selectedSpirits.length > 0) {
+    const weightSum = selectedSpirits.reduce((sum, k) => sum + (selection.spiritWeights[k] || 0), 0);
+    if (weightSum > 0) {
+      selectedSpirits.forEach(k => {
+        const share = (selection.spiritWeights[k] || 0) / weightSum;
+        liters[k] = spiritsTotalLiters * share;
+      });
+    } else {
+      // All weights at zero (e.g. user dragged everything down) — fall
+      // back to an equal split so a selected type never silently gets 0.
+      const equalShare = spiritsTotalLiters / selectedSpirits.length;
+      selectedSpirits.forEach(k => { liters[k] = equalShare; });
+    }
+  }
+
+  // --- Apply reserve uniformly at the very end, build rows ---
+  const rows = [];
+  Object.keys(CONFIG.CATEGORY_META).forEach(key => {
+    if (!active.has(key)) return;
+    const baseLiters = liters[key] || 0;
+    const litersWithReserve = baseLiters * reserveMult;
+    const bottleMl = CONFIG.BOTTLE_SIZES[key];
+    const bottleCount = litersWithReserve > 0 ? Math.ceil((litersWithReserve * 1000) / bottleMl) : 0;
+    rows.push({
+      key,
+      label: CONFIG.CATEGORY_META[key].label,
+      group: CONFIG.CATEGORY_META[key].group,
+      bottleMl,
+      liters: baseLiters,
+      litersWithReserve,
+      bottleCount,
+    });
+  });
+  return rows;
+}
+
+/* =========================================================================
+   6. STATE + DOM WIRING
+   ========================================================================= */
+const state = {
+  currentStep: 1,
+  overrides: {},   // key -> manually set bottle count
+  prices: {},      // key -> manual price per bottle (MDL)
+};
+
+function $(sel, root) { return (root || document).querySelector(sel); }
+function $all(sel, root) { return Array.from((root || document).querySelectorAll(sel)); }
+
+function syncChipVisual(input) {
+  const chip = input.closest('.chip');
+  if (!chip) return;
+  if (input.type === 'checkbox') {
+    chip.classList.toggle('is-checked', input.checked);
+  } else if (input.type === 'radio') {
+    const groupName = input.name;
+    $all('input[name="' + groupName + '"]').forEach(radio => {
+      const c = radio.closest('.chip');
+      if (c) c.classList.toggle('is-checked', radio.checked);
+    });
+  }
+}
+
+function initChipVisuals() {
+  $all('.chip input').forEach(input => {
+    syncChipVisual(input);
+    input.addEventListener('change', () => syncChipVisual(input));
+  });
+}
+
+function clampCounterInput(input) {
+  let v = parseInt(input.value, 10);
+  if (isNaN(v) || v < 0) v = 0;
+  input.value = v;
+}
+
+function initCounters() {
+  $all('.counter-control button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetId = btn.getAttribute('data-target');
+      const step = parseInt(btn.getAttribute('data-step'), 10);
+      const input = document.getElementById(targetId);
+      clampCounterInput(input);
+      input.value = Math.max(0, parseInt(input.value, 10) + step);
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+  });
+  $all('.counter-control input[type="number"]').forEach(input => {
+    input.addEventListener('change', () => {
+      clampCounterInput(input);
+      recalculateAll();
+    });
+  });
+}
+
+function initDrinkingPct() {
+  const slider = document.getElementById('drinkingPctSlider');
+  const readout = document.getElementById('drinkingPctReadout');
+  const presets = $all('input[name="drinkingPctPreset"]');
+
+  function updateReadout() {
+    const pct = Number(slider.value);
+    const adults = Math.max(0, parseInt(document.getElementById('numAdults').value, 10) || 0);
+    const drinking = Math.round(adults * (pct / 100));
+    readout.textContent = pct + '% dintre adulți consumă alcool (aprox. ' + drinking + ' din ' + adults + ' adulți)';
+  }
+
+  slider.addEventListener('input', () => {
+    presets.forEach(p => { p.checked = (Number(p.value) === Number(slider.value)); syncChipVisual(p); });
+    updateReadout();
+    recalculateAll();
+  });
+  presets.forEach(p => {
+    p.addEventListener('change', () => {
+      slider.value = p.value;
+      updateReadout();
+      recalculateAll();
+    });
+  });
+  document.getElementById('numAdults').addEventListener('input', updateReadout);
+  updateReadout();
+}
+
+function buildSpiritSliders() {
+  const container = document.getElementById('spiritSliders');
+  container.innerHTML = '';
+  CONFIG.SPIRIT_KEYS.forEach(key => {
+    const label = CONFIG.CATEGORY_META[key].label;
+    const row = document.createElement('div');
+    row.className = 'slider-row';
+    row.id = 'spiritSliderRow_' + key;
+    row.innerHTML =
+      '<span class="slider-label">' + label + '</span>' +
+      '<span class="slider-pct" id="spiritPct_' + key + '">0%</span>' +
+      '<input type="range" min="0" max="100" step="1" value="50" id="spiritSlider_' + key + '" aria-label="Pondere ' + label + '">';
+    container.appendChild(row);
+  });
+  CONFIG.SPIRIT_KEYS.forEach(key => {
+    const slider = document.getElementById('spiritSlider_' + key);
+    slider.addEventListener('input', () => {
+      updateSpiritPercentDisplay();
+      recalculateAll();
+    });
+  });
+  updateSpiritSliderVisibility();
+  updateSpiritPercentDisplay();
+}
+
+function updateSpiritSliderVisibility() {
+  const active = new Set($all('input[name="cat"]:checked').map(el => el.value));
+  CONFIG.SPIRIT_KEYS.forEach(key => {
+    const row = document.getElementById('spiritSliderRow_' + key);
+    if (row) row.style.display = active.has(key) ? '' : 'none';
+  });
+  updateSpiritPercentDisplay();
+}
+
+function updateSpiritPercentDisplay() {
+  const active = new Set($all('input[name="cat"]:checked').map(el => el.value));
+  const selectedSpirits = CONFIG.SPIRIT_KEYS.filter(k => active.has(k));
+  const weights = {};
+  let sum = 0;
+  selectedSpirits.forEach(k => {
+    const slider = document.getElementById('spiritSlider_' + k);
+    const w = slider ? Number(slider.value) : 0;
+    weights[k] = w;
+    sum += w;
+  });
+  CONFIG.SPIRIT_KEYS.forEach(k => {
+    const pctEl = document.getElementById('spiritPct_' + k);
+    if (!pctEl) return;
+    if (!selectedSpirits.includes(k)) { pctEl.textContent = '—'; return; }
+    const normalized = sum > 0 ? (weights[k] / sum) * 100 : (100 / selectedSpirits.length);
+    pctEl.textContent = Math.round(normalized) + '%';
+  });
+}
+
+/* ---------- Stepper navigation ---------- */
+function goToStep(n) {
+  state.currentStep = n;
+  $all('.panel').forEach(panel => {
+    panel.hidden = Number(panel.getAttribute('data-panel')) !== n;
+  });
+  $all('.step', document.getElementById('stepperList')).forEach(step => {
+    const stepNum = Number(step.getAttribute('data-step'));
+    step.classList.toggle('active', stepNum === n);
+    step.classList.toggle('done', stepNum < n);
+  });
+  document.getElementById('btnPrev').disabled = n === 1;
+  document.getElementById('btnNext').textContent = n === 4 ? 'Recalculează' : 'Continuă';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (n === 4) recalculateAll();
+}
+
+function initStepper() {
+  document.getElementById('btnPrev').addEventListener('click', () => {
+    if (state.currentStep > 1) goToStep(state.currentStep - 1);
+  });
+  document.getElementById('btnNext').addEventListener('click', () => {
+    if (state.currentStep < 4) goToStep(state.currentStep + 1);
+    else recalculateAll();
+  });
+  $all('.step', document.getElementById('stepperList')).forEach(step => {
+    step.style.cursor = 'pointer';
+    step.addEventListener('click', () => goToStep(Number(step.getAttribute('data-step'))));
+  });
+}
+
+/* ---------- Reading current form state ---------- */
+function readGuestModel() {
+  const adults = parseInt(document.getElementById('numAdults').value, 10) || 0;
+  const teens = parseInt(document.getElementById('numTeens').value, 10) || 0;
+  const children = parseInt(document.getElementById('numChildren').value, 10) || 0;
+  const drinkingPct = Number(document.getElementById('drinkingPctSlider').value);
+  return buildGuestModel(adults, teens, children, drinkingPct);
+}
+
+function readEventProfile() {
+  return {
+    duration: $('input[name="duration"]:checked').value,
+    season: $('input[name="season"]:checked').value,
+    profile: $('input[name="profile"]:checked').value,
+  };
+}
+
+function readReservePct() {
+  return $('input[name="reserve"]:checked').value;
+}
+
+function readPricingMode() {
+  return $('input[name="pricingMode"]:checked').value;
+}
+
+/* ---------- Formatting ---------- */
+function fmtLiters(l) {
+  return Math.round(l).toLocaleString('ro-RO') + ' L';
+}
+function fmtMl(ml) {
+  return ml >= 1000 ? (ml / 1000).toLocaleString('ro-RO') + ' L' : ml + ' ml';
+}
+function fmtMoney(n) {
+  return Math.round(n).toLocaleString('ro-RO') + ' MDL';
+}
+
+/* ---------- Rendering results ---------- */
+function renderResults(rows) {
+  const container = document.getElementById('resultsContainer');
+  container.innerHTML = '';
+  const pricingMode = readPricingMode();
+  let grandTotal = 0;
+  let anyPrice = false;
+
+  const visibleRows = rows.filter(r => r.bottleCount > 0 || state.overrides[r.key] !== undefined);
+
+  CONFIG.GROUP_ORDER.forEach(groupName => {
+    const groupRows = visibleRows.filter(r => r.group === groupName);
+    if (groupRows.length === 0) return;
+
+    const groupWrap = document.createElement('div');
+    groupWrap.className = 'results-group';
+    const h3 = document.createElement('h3');
+    h3.textContent = groupName;
+    groupWrap.appendChild(h3);
+
+    const tableWrap = document.createElement('div');
+    tableWrap.className = 'table-wrap';
+    const table = document.createElement('table');
+    table.className = 'results-table';
+
+    const showPrice = pricingMode === 'manual';
+    table.innerHTML =
+      '<thead><tr>' +
+      '<th>Categorie</th>' +
+      '<th>Sticlă</th>' +
+      '<th class="num">Cantitate</th>' +
+      '<th class="num">Cu rezervă</th>' +
+      '<th class="num">Sticle</th>' +
+      (showPrice ? '<th class="num">Preț / sticlă</th><th class="num">Total</th>' : '') +
+      '</tr></thead>';
+
+    const tbody = document.createElement('tbody');
+    groupRows.forEach(row => {
+      const tr = document.createElement('tr');
+      const effectiveCount = state.overrides[row.key] !== undefined ? state.overrides[row.key] : row.bottleCount;
+      const isOverridden = state.overrides[row.key] !== undefined;
+
+      const priceVal = state.prices[row.key] !== undefined ? state.prices[row.key] : '';
+      const rowTotal = showPrice && priceVal !== '' ? Number(priceVal) * effectiveCount : 0;
+      if (showPrice && priceVal !== '') { grandTotal += rowTotal; anyPrice = true; }
+
+      tr.innerHTML =
+        '<td>' + row.label + '</td>' +
+        '<td>' + fmtMl(row.bottleMl) + '</td>' +
+        '<td class="num">' + fmtLiters(row.liters) + '</td>' +
+        '<td class="num">' + fmtLiters(row.litersWithReserve) + '</td>' +
+        '<td class="num">' +
+          '<input type="number" min="0" step="1" class="qty-input' + (isOverridden ? ' overridden' : '') + '" ' +
+          'data-key="' + row.key + '" value="' + effectiveCount + '">' +
+          (isOverridden ? '<span class="override-flag">manual</span>' : '') +
+        '</td>' +
+        (showPrice ?
+          '<td class="num"><input type="number" min="0" step="1" class="price-input" data-price-key="' + row.key + '" value="' + priceVal + '" placeholder="0"></td>' +
+          '<td class="num row-total">' + (priceVal !== '' ? fmtMoney(rowTotal) : '—') + '</td>'
+        : '');
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    tableWrap.appendChild(table);
+    groupWrap.appendChild(tableWrap);
+    container.appendChild(groupWrap);
+  });
+
+  if (visibleRows.length === 0) {
+    const note = document.createElement('p');
+    note.className = 'empty-note';
+    note.textContent = 'Nicio categorie selectată — reveniți la pasul „Preferințe” pentru a alege cel puțin o băutură.';
+    container.appendChild(note);
+  }
+
+  // Wire up quantity override inputs. IMPORTANT: these must NOT trigger a
+  // full renderResults()/recalculateAll() rebuild — rebuilding the table
+  // while the user is mid-edit (e.g. this 'change' fires on blur just as
+  // they click into an adjacent cell) destroys and recreates every input
+  // node, which steals the focus their click was about to land on. Update
+  // this row in place instead; only pricing totals need to refresh.
+  $all('.qty-input', container).forEach(input => {
+    input.addEventListener('change', () => {
+      const key = input.getAttribute('data-key');
+      let v = parseInt(input.value, 10);
+      if (isNaN(v) || v < 0) v = 0;
+      input.value = v;
+      state.overrides[key] = v;
+      input.classList.add('overridden');
+      const next = input.nextElementSibling;
+      if (!next || !next.classList.contains('override-flag')) {
+        const flag = document.createElement('span');
+        flag.className = 'override-flag';
+        flag.textContent = 'manual';
+        input.insertAdjacentElement('afterend', flag);
+      }
+      refreshPricingDisplay();
+    });
+  });
+  // Wire up price inputs. Same reasoning as above: fires on every
+  // keystroke ('input'), so a full rebuild here would destroy the field's
+  // own DOM node mid-type, silently dropping the rest of what's typed.
+  $all('.price-input', container).forEach(input => {
+    input.addEventListener('input', () => {
+      const key = input.getAttribute('data-price-key');
+      const v = input.value;
+      if (v === '') { delete state.prices[key]; } else { state.prices[key] = Number(v); }
+      refreshPricingDisplay();
+    });
+  });
+
+  const grandTotalWrap = document.getElementById('grandTotalWrap');
+  if (pricingMode === 'manual' && anyPrice) {
+    grandTotalWrap.hidden = false;
+    document.getElementById('grandTotalValue').textContent = fmtMoney(grandTotal);
+  } else {
+    grandTotalWrap.hidden = true;
+  }
+}
+
+/* Lightweight refresh used by in-table qty/price edits: updates only the
+   per-row total text and the grand total, without touching any input's
+   DOM node (see the comments on the qty-input/price-input listeners
+   above for why a full rebuild there is unsafe). */
+function refreshPricingDisplay() {
+  const container = document.getElementById('resultsContainer');
+  const pricingMode = readPricingMode();
+  const showPrice = pricingMode === 'manual';
+  const grandTotalWrap = document.getElementById('grandTotalWrap');
+
+  if (!showPrice) {
+    grandTotalWrap.hidden = true;
+    return;
+  }
+
+  let grandTotal = 0;
+  let anyPrice = false;
+  $all('.qty-input', container).forEach(qtyInput => {
+    const key = qtyInput.getAttribute('data-key');
+    const row = (state.lastRows || []).find(r => r.key === key);
+    if (!row) return;
+    const effectiveCount = state.overrides[key] !== undefined ? state.overrides[key] : row.bottleCount;
+    const tr = qtyInput.closest('tr');
+    const totalCell = tr ? tr.querySelector('.row-total') : null;
+    const priceVal = state.prices[key];
+    if (priceVal !== undefined && priceVal !== '') {
+      const total = Number(priceVal) * effectiveCount;
+      grandTotal += total;
+      anyPrice = true;
+      if (totalCell) totalCell.textContent = fmtMoney(total);
+    } else if (totalCell) {
+      totalCell.textContent = '—';
+    }
+  });
+
+  if (anyPrice) {
+    grandTotalWrap.hidden = false;
+    document.getElementById('grandTotalValue').textContent = fmtMoney(grandTotal);
+  } else {
+    grandTotalWrap.hidden = true;
+  }
+}
+
+function buildSummaryText(rows, guestModel) {
+  const totalGuests = guestModel.allGuests;
+  if (totalGuests === 0) {
+    return 'Introduceți numărul de invitați pentru a vedea o recomandare.';
+  }
+  const wineBottles = rows.filter(r => r.group === 'Vin').reduce((s, r) => s + r.bottleCount, 0);
+  const spumantBottles = rows.filter(r => r.group === 'Spumant').reduce((s, r) => s + r.bottleCount, 0);
+  const spiritBottles = rows.filter(r => r.group === 'Tărie').reduce((s, r) => s + r.bottleCount, 0);
+  const waterBottles = rows.filter(r => r.group === 'Apă & nealcoolice').reduce((s, r) => s + r.bottleCount, 0);
+
+  const parts = [];
+  if (waterBottles > 0) parts.push(waterBottles + ' sticle de apă / băuturi răcoritoare');
+  if (wineBottles > 0) parts.push(wineBottles + ' sticle de vin');
+  if (spumantBottles > 0) parts.push(spumantBottles + ' sticle de spumant');
+  if (spiritBottles > 0) parts.push(spiritBottles + ' sticle de tărie');
+
+  if (parts.length === 0) {
+    return 'Pentru <strong>' + totalGuests + ' invitați</strong>, nicio categorie de băutură nu este selectată momentan.';
+  }
+  return 'Pentru <strong>' + totalGuests + ' invitați</strong> recomandăm aproximativ ' + parts.join(', ') + '.';
+}
+
+/* ---------- Main recalculation ---------- */
+function recalculateAll() {
+  const guestModel = readGuestModel();
+  const eventProfile = readEventProfile();
+  const selection = readSelection();
+  const reservePct = readReservePct();
+
+  const rows = computeResults(guestModel, eventProfile, selection, reservePct);
+  state.lastRows = rows;
+
+  document.getElementById('summaryText').innerHTML = buildSummaryText(rows, guestModel);
+  renderResults(rows);
+}
+
+/* ---------- Copy / Print / Reset ---------- */
+function initActions() {
+  document.getElementById('btnCopy').addEventListener('click', () => {
+    const rows = state.lastRows || [];
+    const visible = rows.filter(r => r.bottleCount > 0 || state.overrides[r.key] !== undefined);
+    let text = 'Lista de băuturi pentru eveniment\n';
+    CONFIG.GROUP_ORDER.forEach(group => {
+      const groupRows = visible.filter(r => r.group === group);
+      if (groupRows.length === 0) return;
+      text += '\n' + group + ':\n';
+      groupRows.forEach(r => {
+        const count = state.overrides[r.key] !== undefined ? state.overrides[r.key] : r.bottleCount;
+        text += '- ' + r.label + ': ' + count + ' sticle (' + fmtMl(r.bottleMl) + ')\n';
+      });
+    });
+    const feedback = document.getElementById('copyFeedback');
+    const showFeedback = () => {
+      feedback.hidden = false;
+      setTimeout(() => { feedback.hidden = true; }, 2200);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(showFeedback).catch(() => fallbackCopy(text, showFeedback));
+    } else {
+      fallbackCopy(text, showFeedback);
+    }
+  });
+
+  document.getElementById('btnPrint').addEventListener('click', () => window.print());
+
+  document.getElementById('btnResetOverrides').addEventListener('click', () => {
+    state.overrides = {};
+    recalculateAll();
+  });
+}
+
+function fallbackCopy(text, cb) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); } catch (e) {}
+  document.body.removeChild(ta);
+  cb();
+}
+
+/* ---------- Wire everything else that should trigger recalculation ---------- */
+function initGlobalRecalcListeners() {
+  $all('input[name="duration"], input[name="season"], input[name="profile"], input[name="reserve"], input[name="pricingMode"]').forEach(el => {
+    el.addEventListener('change', recalculateAll);
+  });
+  $all('input[name="cat"]').forEach(el => {
+    el.addEventListener('change', () => {
+      updateSpiritSliderVisibility();
+      recalculateAll();
+    });
+  });
+}
+
+/* ---------- Init ---------- */
+document.addEventListener('DOMContentLoaded', () => {
+  initChipVisuals();
+  initCounters();
+  initDrinkingPct();
+  buildSpiritSliders();
+  initStepper();
+  initActions();
+  initGlobalRecalcListeners();
+  goToStep(1);
+  recalculateAll();
+});
+</script>
+</body>
+</html>
