@@ -514,7 +514,7 @@ footer.credit{
   <header class="hero">
     <p class="eyebrow">Calculator pentru evenimente</p>
     <h1>Calculator de Băuturi</h1>
-    <p class="lede">Estimează câte sticle de apă, vin, spumant și tărie sunt necesare pentru un eveniment — nunta, cumătrie, aniversare. Fără brand, fără magazin — doar calcul clar și transparent.</p>
+    <p class="lede">Estimează câte sticle de apă, vin, spumant și tărie sunt necesare pentru un eveniment — nunta, cumătrie, aniversare.</p>
   </header>
 
   <nav class="stepper" aria-label="Progresul calculului">
@@ -729,7 +729,7 @@ footer.credit{
     <button type="button" class="btn btn-primary" id="btnNext">Continuă</button>
   </div>
 
-  <footer class="credit">Calculator de Băuturi pentru Evenimente — fără afiliere cu niciun magazin sau brand.</footer>
+  <footer class="credit">Calculator de Băuturi pentru Evenimente.</footer>
 </div>
 
 <script>
@@ -1334,16 +1334,31 @@ function initActions() {
   document.getElementById('btnCopy').addEventListener('click', () => {
     const rows = state.lastRows || [];
     const visible = rows.filter(r => r.bottleCount > 0 || state.overrides[r.key] !== undefined);
+    const pricingMode = readPricingMode();
+    const showPrice = pricingMode === 'manual';
     let text = 'Lista de băuturi pentru eveniment\n';
+    let grandTotal = 0;
+    let anyPrice = false;
     CONFIG.GROUP_ORDER.forEach(group => {
       const groupRows = visible.filter(r => r.group === group);
       if (groupRows.length === 0) return;
       text += '\n' + group + ':\n';
       groupRows.forEach(r => {
         const count = state.overrides[r.key] !== undefined ? state.overrides[r.key] : r.bottleCount;
-        text += '- ' + r.label + ': ' + count + ' sticle (' + fmtMl(r.bottleMl) + ')\n';
+        const priceVal = showPrice && state.prices[r.key] !== undefined ? state.prices[r.key] : '';
+        if (priceVal !== '') {
+          const rowTotal = Number(priceVal) * count;
+          grandTotal += rowTotal;
+          anyPrice = true;
+          text += '- ' + r.label + ': ' + count + ' sticle (' + fmtMl(r.bottleMl) + ') — ' + fmtMoney(priceVal) + '/sticlă, total ' + fmtMoney(rowTotal) + '\n';
+        } else {
+          text += '- ' + r.label + ': ' + count + ' sticle (' + fmtMl(r.bottleMl) + ')\n';
+        }
       });
     });
+    if (anyPrice) {
+      text += '\nTotal general: ' + fmtMoney(grandTotal) + '\n';
+    }
     const feedback = document.getElementById('copyFeedback');
     const showFeedback = () => {
       feedback.hidden = false;
