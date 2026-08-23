@@ -356,6 +356,96 @@ button:focus-visible, input:focus-visible, a:focus-visible{
   color:var(--muted);
 }
 
+/* ---------- Spirits allocation ---------- */
+.spirit-single-note{
+  font-size:14px;
+  color:var(--ink);
+  background:var(--surface-2);
+  border:1px solid var(--border);
+  border-radius:var(--radius-sm);
+  padding:10px 14px;
+  margin:0;
+}
+.spirit-allocation-title{
+  font-family:var(--serif);
+  font-size:16px;
+  font-weight:600;
+  margin:0 0 4px;
+}
+.spirit-allocation-help{ margin-bottom:14px; }
+.spirit-row{
+  padding:12px 0;
+  border-bottom:1px solid var(--border);
+}
+.spirit-row:last-child{ border-bottom:none; }
+.spirit-row-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  gap:10px;
+  margin-bottom:8px;
+}
+.spirit-row-label{ font-size:14px; font-weight:600; }
+.spirit-row-pct{
+  font-variant-numeric:tabular-nums;
+  font-weight:700;
+  color:var(--accent);
+  font-size:13px;
+  white-space:nowrap;
+}
+.spirit-pref-row .chip{ padding:7px 13px; font-size:12.5px; }
+.spirit-bar{
+  display:flex;
+  width:100%;
+  height:26px;
+  border-radius:8px;
+  overflow:hidden;
+  border:1px solid var(--border);
+  margin:16px 0 10px;
+}
+.spirit-bar-segment{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-width:0;
+  font-size:11px;
+  font-weight:700;
+  color:var(--ink);
+  white-space:nowrap;
+  overflow:hidden;
+  border-right:1px solid var(--border);
+}
+.spirit-bar-segment:last-child{ border-right:none; }
+.spirit-bar-segment:nth-child(odd){ background:var(--surface-2); }
+.spirit-bar-segment:nth-child(even){ background:var(--accent-soft); }
+.spirit-summary{
+  font-size:13.5px;
+  font-weight:600;
+  color:var(--ink);
+  margin:0 0 4px;
+}
+.spirit-liters-total{
+  font-size:12.5px;
+  color:var(--muted);
+  margin:0 0 4px;
+}
+.spirit-liters-list{
+  list-style:none;
+  margin:0 0 14px;
+  padding:0;
+  font-size:12.5px;
+  color:var(--muted);
+}
+.spirit-liters-list li{ padding:2px 0; }
+.spirit-actions{ margin-bottom:6px; }
+.spirit-advanced{
+  margin-top:10px;
+  font-size:12.5px;
+  color:var(--muted);
+}
+.spirit-advanced summary{ cursor:pointer; font-weight:600; color:var(--ink); }
+.spirit-advanced .slider-row{ margin-top:4px; }
+
 /* ---------- Results ---------- */
 .summary-card{
   background:linear-gradient(160deg, var(--accent-soft), var(--surface) 60%);
@@ -694,7 +784,7 @@ footer.credit{
 
       <fieldset>
         <legend>Tărie
-          <span class="legend-help">Bifați tipurile dorite, apoi ajustați ponderea fiecăruia — procentele se normalizează automat la 100%.</span>
+          <span class="legend-help">Ce tipuri de tărie veți servi?</span>
         </legend>
         <div class="chip-row" data-group="spirits" style="margin-bottom:14px;">
           <label class="chip"><input type="checkbox" name="cat" value="divin" checked><span>Divin</span></label>
@@ -703,7 +793,7 @@ footer.credit{
           <label class="chip"><input type="checkbox" name="cat" value="gin"><span>Gin</span></label>
           <label class="chip"><input type="checkbox" name="cat" value="rom"><span>Rom</span></label>
         </div>
-        <div id="spiritSliders"></div>
+        <div id="spiritAllocation"></div>
       </fieldset>
     </section>
 
@@ -917,10 +1007,13 @@ function getEventMultipliers(profile, duration, season) {
    ========================================================================= */
 function readSelection() {
   const checked = Array.from(document.querySelectorAll('input[name="cat"]:checked')).map(el => el.value);
+  // Spirit weights live in state.spiritWeights (set via the preference chips /
+  // "Distribuie egal" / advanced sliders in the Tărie allocation widget), not
+  // read from ad-hoc DOM elements — this is the single source of truth passed
+  // into the (still pure) calculation engine.
   const spiritWeights = {};
   CONFIG.SPIRIT_KEYS.forEach(key => {
-    const slider = document.getElementById('spiritSlider_' + key);
-    spiritWeights[key] = slider ? Number(slider.value) : 0;
+    spiritWeights[key] = state.spiritWeights[key] || 0;
   });
   return { activeCategories: new Set(checked), spiritWeights };
 }
@@ -1009,6 +1102,7 @@ const state = {
   currentStep: 1,
   overrides: {},   // key -> manually set bottle count
   prices: {},      // key -> manual price per bottle (MDL)
+  spiritWeights: {}, // key -> relative weight within the Tărie allocation (not a % of anything else)
   startedCalculation: false,
   completedTrackedForSession: false,
   feedbackGiven: false,
@@ -1091,58 +1185,249 @@ function initDrinkingPct() {
   updateReadout();
 }
 
-function buildSpiritSliders() {
-  const container = document.getElementById('spiritSliders');
-  container.innerHTML = '';
-  CONFIG.SPIRIT_KEYS.forEach(key => {
+/* =========================================================================
+   TĂRIE ALLOCATION WIDGET
+   ------------------------------------------------------------------------
+   Data model: state.spiritWeights[key] is a RELATIVE WEIGHT, not a percent
+   of anything. computeResults() normalizes these weights internally (by
+   their sum, among selected spirits only) to decide what share of the
+   already-computed total spirits volume each type gets — see "5. Spirits"
+   in computeResults(). Nothing here ever changes that total; this widget
+   only ever writes into state.spiritWeights, which purely re-slices it.
+
+   Three ways a weight gets set, all writing the same field:
+   - Preference chip (Principală/Medie/Puțină) → discrete weight 3/2/1.
+   - "Distribuie egal" → SPIRIT_EQUAL_WEIGHT for every selected spirit
+     (a value outside {1,2,3} so it never falsely lights up a preference
+     chip afterwards).
+   - Advanced slider → exact percentages that are redistributed
+     proportionally among the OTHER selected spirits so they always sum
+     back to 100 (see applySpiritSliderChange for the algorithm).
+
+   All displayed percentages/liters are read back from computeResults()'s
+   own output (state.lastRows), never recomputed independently in the UI —
+   the engine stays the single source of truth for the actual math.
+   ========================================================================= */
+const SPIRIT_PREF_LEVELS = [
+  { label: 'Principală', weight: 3 },
+  { label: 'Medie', weight: 2 },
+  { label: 'Puțină', weight: 1 },
+];
+const SPIRIT_DEFAULT_WEIGHT = 2; // "Medie" — assigned the first time a spirit is checked
+const SPIRIT_EQUAL_WEIGHT = 10;  // used by "Distribuie egal"; outside {1,2,3} on purpose
+
+function getSelectedSpirits() {
+  const active = new Set($all('input[name="cat"]:checked').map(el => el.value));
+  return CONFIG.SPIRIT_KEYS.filter(k => active.has(k));
+}
+
+function ensureSpiritWeightDefaults() {
+  getSelectedSpirits().forEach(key => {
+    if (state.spiritWeights[key] === undefined) state.spiritWeights[key] = SPIRIT_DEFAULT_WEIGHT;
+  });
+}
+
+function getSpiritRows() {
+  return (state.lastRows || []).filter(r => r.group === 'Tărie');
+}
+
+function fmtSpiritPct(pct) {
+  const rounded = Math.round((pct || 0) * 10) / 10;
+  return (Number.isInteger(rounded) ? rounded : rounded.toFixed(1)) + '%';
+}
+
+function fmtLitersPrecise(l) {
+  return (l || 0).toLocaleString('ro-RO', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' L';
+}
+
+// Display-only percentages, read back from the engine's own row output
+// (never re-derived from business rules here). Falls back to normalizing
+// the raw weights directly only when the engine produced zero liters for
+// every spirit (e.g. no drinking adults) — the split is still meaningful
+// to show even though the real quantity is zero.
+function getSpiritDisplayPercents(selected) {
+  const rows = getSpiritRows();
+  const totalLiters = rows.reduce((s, r) => s + r.liters, 0);
+  const map = {};
+  if (totalLiters > 0) {
+    selected.forEach(k => {
+      const row = rows.find(r => r.key === k);
+      map[k] = row ? (row.liters / totalLiters) * 100 : 0;
+    });
+    return map;
+  }
+  const sum = selected.reduce((s, k) => s + (state.spiritWeights[k] || 0), 0);
+  selected.forEach(k => {
+    map[k] = sum > 0 ? ((state.spiritWeights[k] || 0) / sum) * 100 : 100 / selected.length;
+  });
+  return map;
+}
+
+// Advanced-mode drag: redistribute the remaining percentage among the
+// OTHER selected spirits, preserving their relative ratio to one another
+// (not an equal split) — e.g. 40/35/25 with the first moved to 60 becomes
+// 60/23.3/16.7, keeping the 35:25 ratio between the untouched two intact.
+function applySpiritSliderChange(changedKey, rawValue) {
+  const selected = getSelectedSpirits();
+  const newPct = Math.min(100, Math.max(0, Number(rawValue)));
+  const current = getSpiritDisplayPercents(selected);
+  const others = selected.filter(k => k !== changedKey);
+  const remaining = 100 - newPct;
+  const othersSum = others.reduce((s, k) => s + (current[k] || 0), 0);
+
+  state.spiritWeights[changedKey] = newPct;
+  if (others.length > 0) {
+    if (othersSum > 0) {
+      others.forEach(k => { state.spiritWeights[k] = remaining * ((current[k] || 0) / othersSum); });
+    } else {
+      others.forEach(k => { state.spiritWeights[k] = remaining / others.length; });
+    }
+  }
+  recalculateAll();
+}
+
+// Full structural rebuild — only when the SET of selected spirits changes
+// (or on first load). Never called from a slider's 'input' handler: this
+// recreates every node, which would steal focus/derail a drag mid-motion.
+function renderSpiritAllocation() {
+  ensureSpiritWeightDefaults();
+  const container = document.getElementById('spiritAllocation');
+  const selected = getSelectedSpirits();
+
+  if (selected.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+
+  if (selected.length === 1) {
+    const label = CONFIG.CATEGORY_META[selected[0]].label;
+    container.innerHTML = '<p class="spirit-single-note">' + label + ' — <strong>100% din tărie</strong></p>';
+    return;
+  }
+
+  let html = '';
+  html += '<h4 class="spirit-allocation-title">Cum împărțim tăria?</h4>';
+  html += '<p class="legend-help spirit-allocation-help">Calculatorul stabilește separat cantitatea totală de tărie. Aici alegi doar cum vrei să fie împărțită între tipurile selectate.</p>';
+  html += '<div id="spiritRows">';
+  selected.forEach(key => {
+    const label = CONFIG.CATEGORY_META[key].label;
+    html +=
+      '<div class="spirit-row">' +
+        '<div class="spirit-row-head">' +
+          '<span class="spirit-row-label">' + label + '</span>' +
+          '<span class="spirit-row-pct" id="spiritPctText_' + key + '">—</span>' +
+        '</div>' +
+        '<div class="chip-row spirit-pref-row" role="radiogroup" aria-label="Pondere ' + label + ' din tărie">' +
+          SPIRIT_PREF_LEVELS.map(lvl =>
+            '<label class="chip"><input type="radio" name="spiritPref_' + key + '" value="' + lvl.weight + '"><span>' + lvl.label + '</span></label>'
+          ).join('') +
+        '</div>' +
+      '</div>';
+  });
+  html += '</div>';
+  html += '<div class="spirit-bar" id="spiritBar" aria-hidden="true"></div>';
+  html += '<p class="spirit-summary" id="spiritSummaryText" aria-live="polite">Distribuție estimată: —</p>';
+  html += '<p class="spirit-liters-total" id="spiritLitersTotal" hidden></p>';
+  html += '<ul class="spirit-liters-list" id="spiritLitersList"></ul>';
+  html += '<div class="spirit-actions"><button type="button" class="btn btn-ghost btn-sm" id="btnDistributeEqual">Distribuie egal</button></div>';
+  html += '<details class="spirit-advanced">';
+  html += '<summary>Ajustare avansată</summary>';
+  html += '<p class="legend-help">Pondere din totalul de tărie. <strong>Total: 100%</strong></p>';
+  html += '<div id="spiritAdvancedSliders"></div>';
+  html += '</details>';
+
+  container.innerHTML = html;
+
+  selected.forEach(key => {
+    $all('input[name="spiritPref_' + key + '"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        state.spiritWeights[key] = Number(radio.value);
+        recalculateAll();
+      });
+    });
+  });
+
+  const advContainer = document.getElementById('spiritAdvancedSliders');
+  selected.forEach(key => {
     const label = CONFIG.CATEGORY_META[key].label;
     const row = document.createElement('div');
     row.className = 'slider-row';
-    row.id = 'spiritSliderRow_' + key;
+    row.id = 'spiritAdvRow_' + key;
     row.innerHTML =
       '<span class="slider-label">' + label + '</span>' +
-      '<span class="slider-pct" id="spiritPct_' + key + '">0%</span>' +
-      '<input type="range" min="0" max="100" step="1" value="50" id="spiritSlider_' + key + '" aria-label="Pondere ' + label + '">';
-    container.appendChild(row);
+      '<span class="slider-pct" id="spiritAdvPct_' + key + '">—</span>' +
+      '<input type="range" min="0" max="100" step="1" value="0" id="spiritAdvSlider_' + key + '" aria-label="Pondere ' + label + ' din totalul de tărie">';
+    advContainer.appendChild(row);
   });
-  CONFIG.SPIRIT_KEYS.forEach(key => {
-    const slider = document.getElementById('spiritSlider_' + key);
-    slider.addEventListener('input', () => {
-      updateSpiritPercentDisplay();
-      recalculateAll();
+  selected.forEach(key => {
+    const slider = document.getElementById('spiritAdvSlider_' + key);
+    slider.addEventListener('input', () => applySpiritSliderChange(key, slider.value));
+  });
+
+  document.getElementById('btnDistributeEqual').addEventListener('click', () => {
+    selected.forEach(key => { state.spiritWeights[key] = SPIRIT_EQUAL_WEIGHT; });
+    recalculateAll();
+  });
+
+  updateSpiritAllocationDisplay();
+}
+
+// Lightweight in-place refresh — called after every recalculateAll() so it
+// stays correct regardless of what triggered the recalculation, without
+// ever recreating DOM nodes (safe to call mid-drag on the advanced slider).
+function updateSpiritAllocationDisplay() {
+  const selected = getSelectedSpirits();
+  if (selected.length < 2) return;
+  const percents = getSpiritDisplayPercents(selected);
+
+  selected.forEach(key => {
+    const weight = state.spiritWeights[key];
+    $all('input[name="spiritPref_' + key + '"]').forEach(radio => {
+      radio.checked = Number(radio.value) === weight;
+      syncChipVisual(radio);
     });
+    const pctText = document.getElementById('spiritPctText_' + key);
+    if (pctText) pctText.textContent = fmtSpiritPct(percents[key]);
+    const advSlider = document.getElementById('spiritAdvSlider_' + key);
+    if (advSlider && document.activeElement !== advSlider) advSlider.value = Math.round(percents[key] || 0);
+    const advPct = document.getElementById('spiritAdvPct_' + key);
+    if (advPct) advPct.textContent = fmtSpiritPct(percents[key]);
   });
-  updateSpiritSliderVisibility();
-  updateSpiritPercentDisplay();
-}
 
-function updateSpiritSliderVisibility() {
-  const active = new Set($all('input[name="cat"]:checked').map(el => el.value));
-  CONFIG.SPIRIT_KEYS.forEach(key => {
-    const row = document.getElementById('spiritSliderRow_' + key);
-    if (row) row.style.display = active.has(key) ? '' : 'none';
-  });
-  updateSpiritPercentDisplay();
-}
+  const summaryEl = document.getElementById('spiritSummaryText');
+  if (summaryEl) {
+    summaryEl.textContent = 'Distribuție estimată: ' + selected.map(k =>
+      CONFIG.CATEGORY_META[k].label + ' ~' + fmtSpiritPct(percents[k])
+    ).join(' · ');
+  }
 
-function updateSpiritPercentDisplay() {
-  const active = new Set($all('input[name="cat"]:checked').map(el => el.value));
-  const selectedSpirits = CONFIG.SPIRIT_KEYS.filter(k => active.has(k));
-  const weights = {};
-  let sum = 0;
-  selectedSpirits.forEach(k => {
-    const slider = document.getElementById('spiritSlider_' + k);
-    const w = slider ? Number(slider.value) : 0;
-    weights[k] = w;
-    sum += w;
-  });
-  CONFIG.SPIRIT_KEYS.forEach(k => {
-    const pctEl = document.getElementById('spiritPct_' + k);
-    if (!pctEl) return;
-    if (!selectedSpirits.includes(k)) { pctEl.textContent = '—'; return; }
-    const normalized = sum > 0 ? (weights[k] / sum) * 100 : (100 / selectedSpirits.length);
-    pctEl.textContent = Math.round(normalized) + '%';
-  });
+  const rows = getSpiritRows();
+  const totalLiters = rows.reduce((s, r) => s + r.liters, 0);
+  const totalEl = document.getElementById('spiritLitersTotal');
+  const listEl = document.getElementById('spiritLitersList');
+  if (totalEl && listEl) {
+    if (totalLiters > 0) {
+      totalEl.hidden = false;
+      totalEl.textContent = 'Tărie estimată în total: ' + fmtLitersPrecise(totalLiters);
+      listEl.innerHTML = selected.map(k => {
+        const row = rows.find(r => r.key === k);
+        return '<li>' + CONFIG.CATEGORY_META[k].label + ' — ~' + fmtLitersPrecise(row ? row.liters : 0) + '</li>';
+      }).join('');
+    } else {
+      totalEl.hidden = true;
+      listEl.innerHTML = '';
+    }
+  }
+
+  const bar = document.getElementById('spiritBar');
+  if (bar) {
+    bar.innerHTML = selected.map(k => {
+      const pct = percents[k] || 0;
+      const label = CONFIG.CATEGORY_META[k].label;
+      return '<div class="spirit-bar-segment" style="flex-grow:' + Math.max(pct, 0.0001) + '; flex-basis:0;" title="' + label + ' ' + fmtSpiritPct(pct) + '">' +
+        '<span>' + fmtSpiritPct(pct) + '</span></div>';
+    }).join('');
+  }
 }
 
 /* ---------- Stepper navigation ---------- */
@@ -1415,6 +1700,7 @@ function buildSummaryText(rows, guestModel) {
 
 /* ---------- Main recalculation ---------- */
 function recalculateAll() {
+  ensureSpiritWeightDefaults();
   const guestModel = readGuestModel();
   const eventProfile = readEventProfile();
   const selection = readSelection();
@@ -1426,6 +1712,7 @@ function recalculateAll() {
 
   document.getElementById('summaryText').innerHTML = buildSummaryText(rows, guestModel);
   renderResults(rows);
+  updateSpiritAllocationDisplay();
 }
 
 /* ---------- Copy / Print / Reset ---------- */
@@ -1555,7 +1842,9 @@ function initGlobalRecalcListeners() {
   });
   $all('input[name="cat"]').forEach(el => {
     el.addEventListener('change', () => {
-      updateSpiritSliderVisibility();
+      if (CONFIG.SPIRIT_KEYS.includes(el.value)) {
+        renderSpiritAllocation(); // the set of selected spirits changed — structural rebuild
+      }
       recalculateAll();
     });
   });
@@ -1577,7 +1866,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initChipVisuals();
   initCounters();
   initDrinkingPct();
-  buildSpiritSliders();
+  renderSpiritAllocation();
   initStepper();
   initActions();
   initFeedback();
