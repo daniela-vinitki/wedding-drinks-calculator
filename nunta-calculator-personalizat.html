@@ -3,7 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Calculator de Băuturi</title>
+<title>Calculator băuturi pentru nuntă și evenimente – Gratuit</title>
+<meta name="description" content="Calculează cantitatea recomandată de apă, suc, vin, spumant și tărie în funcție de invitați, durata evenimentului și preferințe.">
+<link rel="canonical" href="https://daniela-vinitki.github.io/wedding-drinks-calculator/">
+<meta name="robots" content="index, follow">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Câtă băutură ai nevoie la nuntă?">
+<meta property="og:description" content="Calculează cantitatea recomandată de apă, suc, vin, spumant și tărie în funcție de invitați, durata evenimentului și preferințe.">
+<meta property="og:url" content="https://daniela-vinitki.github.io/wedding-drinks-calculator/">
+<meta property="og:image" content="https://daniela-vinitki.github.io/wedding-drinks-calculator/og-preview.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="ro_RO">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Câtă băutură ai nevoie la nuntă?">
+<meta name="twitter:description" content="Calculează cantitatea recomandată de apă, suc, vin, spumant și tărie în funcție de invitați, durata evenimentului și preferințe.">
+<meta name="twitter:image" content="https://daniela-vinitki.github.io/wedding-drinks-calculator/og-preview.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -471,6 +486,36 @@ table.results-table tr:last-child td{ border-bottom:none; }
   font-weight:600;
   align-self:center;
 }
+.btn-sm{ padding:8px 14px; font-size:13px; }
+
+.result-feedback{
+  margin-top:20px;
+  padding-top:16px;
+  border-top:1px solid var(--border);
+}
+.feedback-question{
+  margin:0 0 10px;
+  font-size:13px;
+  color:var(--muted);
+  font-weight:500;
+}
+.feedback-choices{ display:flex; flex-wrap:wrap; gap:8px; }
+.feedback-choices[hidden]{ display:none; }
+.feedback-thanks{
+  margin:10px 0 0;
+  font-size:13px;
+  color:var(--good);
+  font-weight:600;
+}
+
+.result-disclaimer{
+  display:flex;
+  align-items:flex-start;
+  gap:6px;
+  margin-top:18px;
+  font-size:12.5px;
+  color:var(--muted);
+}
 
 .assumptions{
   margin-top:26px;
@@ -491,7 +536,7 @@ footer.credit{
 /* ---------- Print ---------- */
 @media print{
   body{ background:#fff; color:#000; }
-  .stepper, .nav-buttons, .btn, .result-actions, .reserve-row .chip-row, footer.credit, .hero .lede, .assumptions{ display:none !important; }
+  .stepper, .nav-buttons, .btn, .result-actions, .reserve-row .chip-row, footer.credit, .hero .lede, .assumptions, .result-feedback, .result-disclaimer{ display:none !important; }
   .panel{ box-shadow:none; border:none; padding:0; margin:0; }
   .panel[hidden]{ display:none !important; }
   #panel-4[hidden]{ display:block !important; }
@@ -707,9 +752,23 @@ footer.credit{
       <div class="result-actions">
         <button type="button" class="btn btn-ghost" id="btnCopy">Copiază lista</button>
         <button type="button" class="btn btn-ghost" id="btnPrint">Printează</button>
+        <button type="button" class="btn btn-ghost" id="btnShare">Trimite calculatorul unui prieten</button>
         <button type="button" class="btn btn-ghost" id="btnResetOverrides">Resetează editările manuale</button>
         <span class="copy-feedback" id="copyFeedback" hidden>Copiat în clipboard ✓</span>
+        <span class="copy-feedback" id="shareFeedback" hidden aria-live="polite">Link copiat ✓</span>
       </div>
+
+      <div class="result-feedback" id="resultFeedback">
+        <p class="feedback-question">Rezultatul ți se pare realist?</p>
+        <div class="feedback-choices" role="group" aria-label="Feedback despre rezultat">
+          <button type="button" class="btn btn-ghost btn-sm" data-feedback="realistic">Da</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-feedback="would_buy_more">Aș cumpăra mai mult</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-feedback="would_buy_less">Aș cumpăra mai puțin</button>
+        </div>
+        <p class="feedback-thanks" id="feedbackThanks" hidden aria-live="polite">Mulțumesc pentru feedback! 🤍</p>
+      </div>
+
+      <p class="result-disclaimer"><span aria-hidden="true">ⓘ</span> Cantitățile sunt estimative și pot varia în funcție de profilul invitaților și specificul evenimentului.</p>
 
       <details class="assumptions">
         <summary>Ce presupuneri stau la baza calculului?</summary>
@@ -803,7 +862,27 @@ const CONFIG = {
 
   // Applied once, uniformly, at the very end of the pipeline.
   RESERVE_OPTIONS: { '0': 1.0, '5': 1.05, '10': 1.10, '15': 1.15 },
+
+  // Analytics is OPTIONAL and must never block or alter calculator behavior.
+  // GA4: to enable, add the standard gtag.js loader script to <head> with a
+  // real Measurement ID, then set CONFIG.ANALYTICS.GA4_MEASUREMENT_ID below.
+  // Until a real ID is set, GA4 sending is skipped (no fake ID is hardcoded).
+  ANALYTICS: {
+    GA4_MEASUREMENT_ID: null, // <-- put your real "G-XXXXXXX" ID here once GA4 is set up
+  },
 };
+
+function trackEvent(eventName, params) {
+  params = params || {};
+  try {
+    if (CONFIG.ANALYTICS.GA4_MEASUREMENT_ID && typeof window.gtag === 'function') {
+      window.gtag('event', eventName, params);
+    }
+    if (window.goatcounter && typeof window.goatcounter.count === 'function') {
+      window.goatcounter.count({ path: eventName, title: eventName, event: true });
+    }
+  } catch (e) { /* analytics must never break the calculator */ }
+}
 
 /* =========================================================================
    2. GUEST MODEL
@@ -930,6 +1009,9 @@ const state = {
   currentStep: 1,
   overrides: {},   // key -> manually set bottle count
   prices: {},      // key -> manual price per bottle (MDL)
+  startedCalculation: false,
+  completedTrackedForSession: false,
+  feedbackGiven: false,
 };
 
 function $(sel, root) { return (root || document).querySelector(sel); }
@@ -1077,7 +1159,23 @@ function goToStep(n) {
   document.getElementById('btnPrev').disabled = n === 1;
   document.getElementById('btnNext').textContent = n === 4 ? 'Recalculează' : 'Continuă';
   window.scrollTo({ top: 0, behavior: 'smooth' });
-  if (n === 4) recalculateAll();
+  if (n === 4) {
+    recalculateAll();
+    if (!state.completedTrackedForSession && state.lastGuestModel && state.lastGuestModel.allGuests > 0) {
+      state.completedTrackedForSession = true;
+      trackEvent('completed_calculation', {
+        duration: readEventProfile().duration,
+        season: readEventProfile().season,
+        profile: readEventProfile().profile,
+        reservePct: Number(readReservePct()),
+        manualPricing: readPricingMode() === 'manual',
+      });
+    }
+  } else {
+    state.completedTrackedForSession = false;
+    state.feedbackGiven = false;
+    resetFeedbackWidget();
+  }
 }
 
 function initStepper() {
@@ -1324,6 +1422,7 @@ function recalculateAll() {
 
   const rows = computeResults(guestModel, eventProfile, selection, reservePct);
   state.lastRows = rows;
+  state.lastGuestModel = guestModel;
 
   document.getElementById('summaryText').innerHTML = buildSummaryText(rows, guestModel);
   renderResults(rows);
@@ -1365,17 +1464,75 @@ function initActions() {
       setTimeout(() => { feedback.hidden = true; }, 2200);
     };
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(showFeedback).catch(() => fallbackCopy(text, showFeedback));
+      navigator.clipboard.writeText(text).then(() => { showFeedback(); trackEvent('copied_list'); }).catch(() => fallbackCopy(text, () => { showFeedback(); trackEvent('copied_list'); }));
     } else {
-      fallbackCopy(text, showFeedback);
+      fallbackCopy(text, () => { showFeedback(); trackEvent('copied_list'); });
     }
   });
 
-  document.getElementById('btnPrint').addEventListener('click', () => window.print());
+  document.getElementById('btnPrint').addEventListener('click', () => {
+    trackEvent('print');
+    window.print();
+  });
 
   document.getElementById('btnResetOverrides').addEventListener('click', () => {
     state.overrides = {};
     recalculateAll();
+  });
+
+  document.getElementById('btnShare').addEventListener('click', () => {
+    const shareUrl = 'https://daniela-vinitki.github.io/wedding-drinks-calculator/';
+    const shareFeedback = document.getElementById('shareFeedback');
+    const showShareFeedback = () => {
+      shareFeedback.hidden = false;
+      setTimeout(() => { shareFeedback.hidden = true; }, 2200);
+    };
+    if (navigator.share) {
+      navigator.share({
+        title: 'Calculator băuturi pentru nuntă și evenimente',
+        text: 'Calculează rapid cantitatea recomandată de băuturi pentru nuntă sau eveniment.',
+        url: shareUrl,
+      }).then(() => {
+        trackEvent('share_calculator', { method: 'native_share' });
+      }).catch(err => {
+        if (err && err.name === 'AbortError') return;
+      });
+    } else if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(shareUrl).then(() => {
+        showShareFeedback();
+        trackEvent('share_calculator', { method: 'clipboard' });
+      }).catch(() => fallbackCopy(shareUrl, () => {
+        showShareFeedback();
+        trackEvent('share_calculator', { method: 'clipboard' });
+      }));
+    } else {
+      fallbackCopy(shareUrl, () => {
+        showShareFeedback();
+        trackEvent('share_calculator', { method: 'clipboard' });
+      });
+    }
+  });
+}
+
+/* ---------- Result feedback widget ---------- */
+function resetFeedbackWidget() {
+  const choices = document.querySelector('#resultFeedback .feedback-choices');
+  const thanks = document.getElementById('feedbackThanks');
+  if (choices) choices.hidden = false;
+  if (thanks) thanks.hidden = true;
+}
+
+function initFeedback() {
+  $all('#resultFeedback [data-feedback]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (state.feedbackGiven) return;
+      state.feedbackGiven = true;
+      trackEvent('result_feedback', { response: btn.dataset.feedback });
+      const choices = document.querySelector('#resultFeedback .feedback-choices');
+      const thanks = document.getElementById('feedbackThanks');
+      if (choices) choices.hidden = true;
+      if (thanks) thanks.hidden = false;
+    });
   });
 }
 
@@ -1404,6 +1561,17 @@ function initGlobalRecalcListeners() {
   });
 }
 
+function initStartCalculationTracking() {
+  const main = document.querySelector('main');
+  ['change', 'input'].forEach(evt => {
+    main.addEventListener(evt, () => {
+      if (state.startedCalculation) return;
+      state.startedCalculation = true;
+      trackEvent('start_calculation');
+    }, true);
+  });
+}
+
 /* ---------- Init ---------- */
 document.addEventListener('DOMContentLoaded', () => {
   initChipVisuals();
@@ -1412,7 +1580,9 @@ document.addEventListener('DOMContentLoaded', () => {
   buildSpiritSliders();
   initStepper();
   initActions();
+  initFeedback();
   initGlobalRecalcListeners();
+  initStartCalculationTracking();
   goToStep(1);
   recalculateAll();
 });
